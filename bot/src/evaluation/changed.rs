@@ -225,11 +225,9 @@ impl Evaluator for Standard {
             }
         }
 
-        if placed == Piece::T {
-            match lock.placement_kind {
-                PlacementKind::Tspin1 | PlacementKind::Tspin2 | PlacementKind::Tspin3 => {}
-                _ => acc_eval += self.wasted_t,
-            }
+        match lock.placement_kind {
+            PlacementKind::Tspin1 | PlacementKind::Tspin2 | PlacementKind::Tspin3 => {}
+            _ => acc_eval += self.wasted_t,
         }
 
         // magic approximation of line clear delay

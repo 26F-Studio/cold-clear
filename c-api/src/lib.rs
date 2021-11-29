@@ -87,12 +87,14 @@ cenum! {
         CC_RIGHT => PieceMovement::Right,
         CC_CW => PieceMovement::Cw,
         CC_CCW => PieceMovement::Ccw,
-        CC_DROP => PieceMovement::SonicDrop
+        CC_DROP => PieceMovement::SonicDrop,
+        CC_FLIP => PieceMovement::Flip
     }
 
     enum CCSpawnRule => SpawnRule {
         CC_ROW_19_OR_20 => SpawnRule::Row19Or20,
-        CC_ROW_21_AND_FALL => SpawnRule::Row21AndFall
+        CC_ROW_21_AND_FALL => SpawnRule::Row21AndFall,
+        CC_ROW_20 => SpawnRule::Row20
     }
 
     enum CCMovementMode => MovementMode {

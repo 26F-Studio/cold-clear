@@ -161,19 +161,32 @@ impl<R: Row> Board<R> {
     /// Clears lines, detects clear kind, calculates garbage, maintains combo and back-to-back
     /// state, detects perfect clears, detects lockout.
     pub fn lock_piece(&mut self, piece: FallingPiece) -> LockResult {
-        let mut locked_out = true;
+        let locked_out = false;
         for &(x, y) in &piece.cells() {
             self.cells[y as usize].set(x as usize, piece.kind.0.color());
             if self.column_heights[x as usize] < y + 1 {
                 self.column_heights[x as usize] = y + 1;
             }
-            if y < 20 {
-                locked_out = false;
-            }
+            // if y < 20 {
+            //     locked_out = false;
+            // }
         }
         let cleared = self.remove_cleared_lines();
 
-        let placement_kind = PlacementKind::get(cleared.len(), piece.tspin);
+        let tspin = {
+            let mut tspin = piece.tspin;
+            if tspin == TspinStatus::Mini && cleared.len() > 0 {
+                let mut ys: Vec<_> = piece.cells().iter().map(|&(_, y)| y).collect();
+                ys.sort_unstable();
+                ys.dedup();
+                if ys.len() == cleared.len() {
+                    tspin = TspinStatus::Full;
+                }
+            }
+            tspin
+        };
+
+        let placement_kind = PlacementKind::get(cleared.len(), tspin);
 
         let mut garbage_sent = placement_kind.garbage();
 

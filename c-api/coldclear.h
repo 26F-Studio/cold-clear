@@ -20,7 +20,8 @@ typedef enum CCMovement {
     CC_LEFT, CC_RIGHT,
     CC_CW, CC_CCW,
     /* Soft drop all the way down */
-    CC_DROP
+    CC_DROP,
+    CC_FLIP
 } CCMovement;
 
 typedef enum CCMovementMode {
@@ -32,6 +33,7 @@ typedef enum CCMovementMode {
 typedef enum CCSpawnRule {
     CC_ROW_19_OR_20,
     CC_ROW_21_AND_FALL,
+    CC_ROW_20
 } CCSpawnRule;
 
 typedef enum CCBotPollStatus {

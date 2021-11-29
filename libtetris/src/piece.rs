@@ -77,42 +77,57 @@ impl FallingPiece {
     fn rotate<R: Row>(&mut self, target: PieceState, board: &Board<R>) -> bool {
         let initial = *self;
         self.kind = target;
-        let initial_offsets = initial.kind.rotation_points();
-        let target_offsets = target.rotation_points();
-        let kicks = initial_offsets
-            .iter()
-            .zip(target_offsets.iter())
-            .map(|(&(x1, y1), &(x2, y2))| (x1 - x2, y1 - y2));
+        // let initial_offsets = initial.kind.rotation_points();
+        // let target_offsets = target.rotation_points();
+        //let kicks = initial_offsets
+        //    .iter()
+        //    .zip(target_offsets.iter())
+        //    .map(|(&(x1, y1), &(x2, y2))| (x1 - x2, y1 - y2));
+        let table = initial.kind.trs_kick_table(target.1);
+        let kicks = table.iter();
 
         for (i, (dx, dy)) in kicks.enumerate() {
             self.x = initial.x + dx;
             self.y = initial.y + dy;
             if !board.obstructed(self) {
-                if target.0 == Piece::T {
-                    let mut mini_corners = 0;
+                let immobile = {
+                    let mut immobile = true;
+                    let moves = [(0, -1), (0, 1), (-1, 0), (1, 0)];
+                    for (dx, dy) in moves.iter() {
+                        self.x += dx;
+                        self.y += dy;
+                        if !board.obstructed(self) {
+                            immobile = false;
+                        }
+                        self.x -= dx;
+                        self.y -= dy;
+                    }
+                    immobile
+                };
+                let three_corner = {
+                    let mut corners = 0;
                     for &(dx, dy) in &target.1.mini_tspin_corners() {
                         if board.occupied(self.x + dx, self.y + dy) {
-                            mini_corners += 1;
+                            corners += 1;
                         }
                     }
-
-                    let mut non_mini_corners = 0;
                     for &(dx, dy) in &target.1.non_mini_tspin_corners() {
                         if board.occupied(self.x + dx, self.y + dy) {
-                            non_mini_corners += 1;
+                            corners += 1;
                         }
                     }
-
-                    if non_mini_corners + mini_corners >= 3 {
-                        if i == 4 || mini_corners == 2 {
-                            self.tspin = TspinStatus::Full;
-                        } else {
-                            self.tspin = TspinStatus::Mini;
-                        }
-                    } else {
-                        self.tspin = TspinStatus::None;
-                    }
-                }
+                    corners >= 3
+                };
+                let non_second = i != 1;
+                let use_three_corner = match target.0 {
+                    Piece::I | Piece::O => false,
+                    _ => true,
+                };
+                self.tspin = if use_three_corner && immobile != three_corner {
+                    if non_second { TspinStatus::Full } else { TspinStatus::Mini }
+                } else {
+                    if immobile { TspinStatus::Full } else { TspinStatus::None }
+                };
                 return true;
             }
         }
@@ -130,6 +145,12 @@ impl FallingPiece {
     pub fn ccw<R: Row>(&mut self, board: &Board<R>) -> bool {
         let mut target = self.kind;
         target.ccw();
+        self.rotate(target, board)
+    }
+
+    pub fn flip<R: Row>(&mut self, board: &Board<R>) -> bool {
+        let mut target = self.kind;
+        target.flip();
         self.rotate(target, board)
     }
 
@@ -262,6 +283,16 @@ impl RotationState {
         }
     }
 
+    pub fn flip(&mut self) {
+        use RotationState::*;
+        match self {
+            North => *self = South,
+            South => *self = North,
+            East => *self = West,
+            West => *self = East,
+        }
+    }
+
     pub fn mini_tspin_corners(self) -> [(i32, i32); 2] {
         use RotationState::*;
         match self {
@@ -283,6 +314,79 @@ impl RotationState {
     }
 }
 
+macro_rules! kick {
+    ($matchant:expr => $($from:tt -> $to:tt : [$($tts:tt)*])*) => {
+        match $matchant {
+            $(
+                (kick!(@term $from), kick!(@term $to)) => kick!(@enter [(0, 0)] $($tts)*),
+            )*
+            (_, _) => unreachable!()
+        }
+    };
+    ($matchant:expr; $offsets:tt => $($from:tt -> $to:tt : [$($tts:tt)*])*) => {
+        match $matchant {
+            $(
+                (kick!(@term $from), kick!(@term $to)) => kick!(@offsets [] [$from $to] $offsets $($tts)*),
+            )*
+            (_, _) => unreachable!()
+        }
+    };
+    (@term 0) => {North};
+    (@term 2) => {South};
+    (@term R) => {East};
+    (@term L) => {West};
+    (@offsets [$($r:tt)*] [0 $($to:tt)*] [0[$a:expr, $b:expr] $($offsets:tt)*] $($tts:tt)*) => {
+        kick!(@offsets [$($r)* ($a, $b)] [$($to)*] [$($offsets)*] $($tts)*)
+    };
+    (@offsets [$($r:tt)*] [0 $($to:tt)*] [$t:tt[$a:expr, $b:expr] $($offsets:tt)*] $($tts:tt)*) => {
+        kick!(@offsets [$($r)*] [0 $($to)*] [$($offsets)* $t[$a, $b]] $($tts)*)
+    };
+    (@offsets [$($r:tt)*] [2 $($to:tt)*] [2[$a:expr, $b:expr] $($offsets:tt)*] $($tts:tt)*) => {
+        kick!(@offsets [$($r)* ($a, $b)] [$($to)*] [$($offsets)*] $($tts)*)
+    };
+    (@offsets [$($r:tt)*] [2 $($to:tt)*] [$t:tt[$a:expr, $b:expr] $($offsets:tt)*] $($tts:tt)*) => {
+        kick!(@offsets [$($r)*] [2 $($to)*] [$($offsets)* $t[$a, $b]] $($tts)*)
+    };
+    (@offsets [$($r:tt)*] [L $($to:tt)*] [L[$a:expr, $b:expr] $($offsets:tt)*] $($tts:tt)*) => {
+        kick!(@offsets [$($r)* ($a, $b)] [$($to)*] [$($offsets)*] $($tts)*)
+    };
+    (@offsets [$($r:tt)*] [L $($to:tt)*] [$t:tt[$a:expr, $b:expr] $($offsets:tt)*] $($tts:tt)*) => {
+        kick!(@offsets [$($r)*] [L $($to)*] [$($offsets)* $t[$a, $b]] $($tts)*)
+    };
+    (@offsets [$($r:tt)*] [R $($to:tt)*] [R[$a:expr, $b:expr] $($offsets:tt)*] $($tts:tt)*) => {
+        kick!(@offsets [$($r)* ($a, $b)] [$($to)*] [$($offsets)*] $($tts)*)
+    };
+    (@offsets [$($r:tt)*] [R $($to:tt)*] [$t:tt[$a:expr, $b:expr] $($offsets:tt)*] $($tts:tt)*) => {
+        kick!(@offsets [$($r)*] [R $($to)*] [$($offsets)* $t[$a, $b]] $($tts)*)
+    };
+    (@offsets [($fromx:expr, $fromy:expr) ($tox:expr, $toy:expr)] [] [$($offsets:tt)*] $($tts:tt)*) => {
+        kick!(@enter [($tox - $fromx, $toy - $fromy)] $($tts)*)
+    };
+    (@enter $($t:tt)*) => {kick!(@single 8 $($t)*)};
+    (@single 0 [($($dummy:tt)*), $($out:tt)*]) => {[$($out)*]};
+    (@single $k:tt [($xoff:expr, $yoff:expr) $($out:tt)*] + $lit1:literal + $lit2:literal $($tts:tt)*) => {
+        kick!(@down $k [($xoff, $yoff) $($out)*, ($lit1+$xoff, $lit2+$yoff)] $($tts)*)
+    };
+    (@single $k:tt [($xoff:expr, $yoff:expr) $($out:tt)*] + $lit1:literal - $lit2:literal $($tts:tt)*) => {
+        kick!(@down $k [($xoff, $yoff) $($out)*, ($lit1+$xoff, -$lit2+$yoff)] $($tts)*)
+    };
+    (@single $k:tt [($xoff:expr, $yoff:expr) $($out:tt)*] - $lit1:literal + $lit2:literal $($tts:tt)*) => {
+        kick!(@down $k [($xoff, $yoff) $($out)*, (-$lit1+$xoff, $lit2+$yoff)] $($tts)*)
+    };
+    (@single $k:tt [($xoff:expr, $yoff:expr) $($out:tt)*] - $lit1:literal - $lit2:literal $($tts:tt)*) => {
+        kick!(@down $k [($xoff, $yoff) $($out)*, (-$lit1+$xoff, -$lit2+$yoff)] $($tts)*)
+    };
+    (@single $k:tt [($($dummy:tt)*), ($($first:tt)*), $($out:tt)*]) => {kick!(@down $k [($($dummy)*), ($($first)*), $($out)*, ($($first)*)])};
+    (@down 8 $($tts:tt)*) => {kick!(@single 7 $($tts)*)};
+    (@down 7 $($tts:tt)*) => {kick!(@single 6 $($tts)*)};
+    (@down 6 $($tts:tt)*) => {kick!(@single 5 $($tts)*)};
+    (@down 5 $($tts:tt)*) => {kick!(@single 4 $($tts)*)};
+    (@down 4 $($tts:tt)*) => {kick!(@single 3 $($tts)*)};
+    (@down 3 $($tts:tt)*) => {kick!(@single 2 $($tts)*)};
+    (@down 2 $($tts:tt)*) => {kick!(@single 1 $($tts)*)};
+    (@down 1 $($tts:tt)*) => {kick!(@single 0 $($tts)*)};
+}
+
 impl PieceState {
     pub fn cw(&mut self) {
         self.1.cw()
@@ -290,6 +394,10 @@ impl PieceState {
 
     pub fn ccw(&mut self) {
         self.1.ccw()
+    }
+
+    pub fn flip(&mut self) {
+        self.1.flip()
     }
 
     /// Returns the cells this piece and orientation occupy relative to rotation point 1, as well
@@ -409,6 +517,100 @@ impl PieceState {
             (_, West) => [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)],
         }
     }
+
+     pub fn trs_kick_table(&self, target: RotationState) -> [(i32, i32); 8] {
+        use Piece::*;
+        use RotationState::*;
+        let kicks = match self.0 {
+            I => kick!{ (self.1, target);
+                    [0[0, 0] R[1, 0] L[0, -1] 2[1, -1]] =>
+                0->R: [+0+0 +0+1 +1+0 -2+0 -2-1 +1+2]
+                R->0: [+0+0 +2+0 -1+0 -1-2 +2+1 +0+1]
+                0->L: [+0+0 +0+1 -1+0 +2+0 +2-1 -1+2]
+                L->0: [+0+0 -2+0 +1+0 +1-2 -2+1 +0+1]
+                R->2: [+0+0 -1+0 +2+0 +2-1 +0-1 -1+2]
+                2->R: [+0+0 -2+0 +1+0 +1-2 -2+1 +0+1]
+                L->2: [+0+0 +1+0 -2+0 -2-1 +0-1 +1+2]
+                2->L: [+0+0 +2+0 -1+0 -1-2 +2+1 +0+1]
+                0->2: [+0+0 -1+0 +1+0 +0-1 +0+1]
+                2->0: [+0+0 +1+0 -1+0 +0+1 +0-1]
+                R->L: [+0+0 +0-1 -1+0 +1+0 +0+1]
+                L->R: [+0+0 +0-1 +1+0 -1+0 +0+1]
+            },
+            O => [(0, 0); 8],
+            T => kick!{ (self.1, target) =>
+                0->R: [+0+0 -1+0 -1+1 +0-2 -1-2 +0+1]
+                R->0: [+0+0 +1+0 +1-1 +0+2 +1+2 +0-1]
+                0->L: [+0+0 +1+0 +1+1 +0-2 +1-2 +0+1]
+                L->0: [+0+0 -1+0 -1-1 +0+2 -1+2 +0-1]
+                R->2: [+0+0 +1+0 +1-1 +0-1 -1-1 +0+2 +1+2 +1+1]
+                2->R: [+0+0 -1+0 +0-2 -1-2 -1-1 +1+1]
+                L->2: [+0+0 -1+0 -1-1 +0-1 +1-1 +0+2 -1+2 -1+1]
+                2->L: [+0+0 +1+0 +0-2 +1-2 +1-1 -1+1]
+                0->2: [+0+0 -1+0 +1+0 +0+1]
+                2->0: [+0+0 +1+0 -1+0 +0-1]
+                R->L: [+0+0 +0-1 +0+1 +1+0 +0-2 +0+2]
+                L->R: [+0+0 +0-1 +0+1 -1+0 +0-2 +0+2]
+            },
+            S => kick!{ (self.1, target) =>
+                0->R: [+0+0 -1+0 -1+1 +0-2 -1-1 -1-2]
+                R->0: [+0+0 +1+0 +1-1 +0+2 +1+2 +0-1]
+                0->L: [+0+0 +1+0 +1+1 +0-2 +1+2 +0+1]
+                L->0: [+0+0 -1+0 -1-1 +0+2 -1-2 -1-2]
+                R->2: [+0+0 +1+0 +1-1 +0+2 +1+2 +0-1]
+                2->R: [+0+0 -1+0 -1+1 +0-2 -1-2 +0+1]
+                L->2: [+0+0 -1+0 -1-1 +0+2 -1+2 -1+1]
+                2->L: [+0+0 +1+0 +1+1 +0-2 +1-2 +1-1]
+                0->2: [+0+0 -1+0 +1+0 +0-1 +0+1]
+                2->0: [+0+0 +1+0 -1+0 +0+1 +0-1]
+                R->L: [+0+0 +0+1 +0-1 +0+2]
+                L->R: [+0+0 +0-1 +0+1 +0-2]
+            },
+            Z => kick!{ (self.1, target) =>
+                0->R: [+0+0 -1+0 -1+1 +0-2 -1+2 +0+1]
+                R->0: [+0+0 +1+0 +1-1 +0+2 +1-2 +1-2]
+                0->L: [+0+0 +1+0 +1+1 +0-2 +1-1 +1-2]
+                L->0: [+0+0 -1+0 -1-1 +0+2 -1+2 +0-1]
+                R->2: [+0+0 +1+0 +1-1 +0+2 +1+2 +1+1]
+                2->R: [+0+0 -1+0 -1+1 +0-2 -1-2 -1-1]
+                L->2: [+0+0 -1+0 -1-1 +0+2 -1+2 +0-1]
+                2->L: [+0+0 +1+0 +1+1 +0-2 +1-2 +0+1]
+                0->2: [+0+0 +1+0 -1+0 +0-1 +0+1]
+                2->0: [+0+0 -1+0 +1+0 +0+1 +0-1]
+                R->L: [+0+0 +0-1 +0+1 +0-2]
+                L->R: [+0+0 +0+1 +0-1 +0+2]
+            },
+            L => kick!{ (self.1, target) =>
+                0->R: [+0+0 -1+0 -1+1 +0-2 -1-2 -1-1 +0+1]
+                R->0: [+0+0 +1+0 +1-1 +0+2 +1+2 +0-1 +1+1]
+                0->L: [+0+0 +1+0 +1+1 +0-2 -1+1 +0+1 +0-1]
+                L->0: [+0+0 -1+0 -1-1 +0+2 +1-1 +0-1 +0+1]
+                R->2: [+0+0 +1+0 +1-1 -1+0 +0+2 +1+2 +1+1]
+                2->R: [+0+0 -1+0 -1-1 +1+0 -1+1 +0-2 -1-2]
+                L->2: [+0+0 -1+0 -1-1 -1+1 +1+0 +0-1 +0+2 -1+2]
+                2->L: [+0+0 +1+0 +1+1 +1-1 -1+0 +0+1 +0-2 +1-2]
+                0->2: [+0+0 +1+0 -1+0 +0-1 +0+1]
+                2->0: [+0+0 -1+0 +1+0 +0+1 +0-1]
+                R->L: [+0+0 +0+1 +0-1 +1+0]
+                L->R: [+0+0 +0-1 +0+1 -1+0]
+            },
+            J => kick!{ (self.1, target) =>
+                0->R: [+0+0 -1+0 -1+1 +0-2 +1+1 +0+1 +0-1]
+                R->0: [+0+0 +1+0 +1-1 +0+2 -1-1 +0-1 +0+1]
+                0->L: [+0+0 +1+0 +1+1 +0-2 +1-2 +1-1 +0+1]
+                L->0: [+0+0 -1+0 -1-1 +0+2 -1+2 +0-1 -1+1]
+                R->2: [+0+0 +1+0 +1-1 +1+1 -1+0 +0-1 +0+2 +1+2]
+                2->R: [+0+0 -1+0 -1+1 -1-1 +1+0 +0+1 +0-2 -1-2]
+                L->2: [+0+0 -1+0 -1-1 +1+0 +0+2 -1+2 -1+1]
+                2->L: [+0+0 +1+0 +1-1 -1+0 +1+1 +0-2 +1-2]
+                0->2: [+0+0 -1+0 +1+0 +0-1 +0+1]
+                2->0: [+0+0 +1+0 -1+0 +0+1 +0-1]
+                R->L: [+0+0 +0-1 +0+1 +1+0]
+                L->R: [+0+0 +0+1 +0-1 -1+0]
+            }
+        };
+        return kicks;
+    }
 }
 
 impl rand::distributions::Distribution<Piece> for rand::distributions::Standard {
@@ -458,6 +660,7 @@ pub enum PieceMovement {
     Right,
     Cw,
     Ccw,
+    Flip,
     SonicDrop,
 }
 
@@ -468,6 +671,7 @@ impl PieceMovement {
             PieceMovement::Right => piece.shift(board, 1, 0),
             PieceMovement::Ccw => piece.ccw(board),
             PieceMovement::Cw => piece.cw(board),
+            PieceMovement::Flip => piece.flip(board),
             PieceMovement::SonicDrop => piece.sonic_drop(board),
         }
     }
@@ -514,6 +718,7 @@ impl Direction {
 pub enum SpawnRule {
     Row19Or20,
     Row21AndFall,
+    Row20,
 }
 
 impl SpawnRule {
@@ -543,6 +748,17 @@ impl SpawnRule {
                 };
                 if !board.obstructed(&spawned) {
                     spawned.shift(board, 0, -1);
+                    return Some(spawned);
+                }
+            }
+            SpawnRule::Row20 => {
+                let spawned = FallingPiece {
+                    kind: PieceState(piece, RotationState::North),
+                    x: 4,
+                    y: 20,
+                    tspin: TspinStatus::None,
+                };
+                if !board.obstructed(&spawned) {
                     return Some(spawned);
                 }
             }
