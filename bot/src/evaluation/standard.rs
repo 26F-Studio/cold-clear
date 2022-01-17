@@ -245,7 +245,7 @@ impl Evaluator for Standard {
         };
         acc_eval += self.move_time * move_time;
 
-        if board.b2b_gauge >= 50 { // b3b?
+        if board.b2b_gauge >= 800 { // b3b?
             transient_eval += self.back_to_back;
         }
 
