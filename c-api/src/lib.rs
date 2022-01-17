@@ -91,6 +91,12 @@ cenum! {
         CC_FLIP => PieceMovement::Flip
     }
 
+    enum CCSpawnRule => SpawnRule {
+        CC_ROW_19_OR_20 => SpawnRule::Row19Or20,
+        CC_ROW_21_AND_FALL => SpawnRule::Row21AndFall,
+        CC_ROW_VAR => SpawnRule::RowVariable
+    }
+
     enum CCMovementMode => MovementMode {
         CC_0G => MovementMode::ZeroG,
         CC_20G => MovementMode::TwentyG,
@@ -101,33 +107,6 @@ cenum! {
         CC_PC_OFF => None,
         CC_PC_FASTEST => Some(PcPriority::Fastest),
         CC_PC_ATTACK => Some(PcPriority::HighestAttack)
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-#[allow(non_camel_case_types)]
-#[repr(C)]
-enum CCSpawnRule {
-    CC_ROW_19_OR_20,
-    CC_ROW_21_AND_FALL,
-    CC_ROW_VAR(i32),
-}
-impl From<SpawnRule> for CCSpawnRule {
-    fn from(v: SpawnRule) -> CCSpawnRule {
-        match v {
-            SpawnRule::Row19Or20 => CCSpawnRule::CC_ROW_19_OR_20,
-            SpawnRule::Row21AndFall => CCSpawnRule::CC_ROW_21_AND_FALL,
-            SpawnRule::RowVariable(n) => CCSpawnRule::CC_ROW_VAR(n),
-        }
-    }
-}
-impl From<CCSpawnRule> for SpawnRule {
-    fn from(v: CCSpawnRule) -> SpawnRule {
-        match v {
-            CCSpawnRule::CC_ROW_19_OR_20 => SpawnRule::Row19Or20,
-            CCSpawnRule::CC_ROW_21_AND_FALL => SpawnRule::Row21AndFall,
-            CCSpawnRule::CC_ROW_VAR(n) => SpawnRule::RowVariable(n),
-        }
     }
 }
 
@@ -304,7 +283,8 @@ unsafe extern "C" fn cc_launch_with_board_async(
         convert_hold(hold),
         b2b_gauge,
         combo,
-        pc_combo
+        pc_combo,
+        20
     );
     for i in 0..count as usize {
         board.add_next_piece((*pieces.add(i)).into());
@@ -455,7 +435,7 @@ fn convert(m: libtetris::Move, info: cold_clear::Info) -> CCMove {
             cold_clear::Info::Book => 0,
         },
         spawn: match &info {
-            cold_clear::Info::Normal(info) => info.spawn.identification(),
+            cold_clear::Info::Normal(info) => info.spawn,
             _ => 0,
         }
     }

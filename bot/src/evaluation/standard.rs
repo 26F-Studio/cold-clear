@@ -157,7 +157,7 @@ impl Evaluator for Standard {
             if incoming == 0
                 || mv.board.column_heights()[3..6]
                     .iter()
-                    .all(|h| incoming as i32 - mv.lock.garbage_sent as i32 + h <= 20)
+                    .all(|h| incoming as i32 - mv.lock.garbage_sent as i32 + h <= mv.board.spawn)
             {
                 return mv;
             }
@@ -309,7 +309,7 @@ impl Evaluator for Standard {
         }
 
         let mut depth = 0;
-        'yloop: for y in board.column_heights()[well]..20 {
+        'yloop: for y in board.column_heights()[well]..board.spawn {
             for x in 0..10 {
                 if x as usize != well && !board.occupied(x, y) {
                     break 'yloop;

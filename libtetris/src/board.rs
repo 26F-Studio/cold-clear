@@ -18,6 +18,7 @@ pub struct Board<R = u16> {
     pub hold_piece: Option<Piece>,
     next_pieces: VecDeque<Piece>,
     pub bag: EnumSet<Piece>,
+    pub spawn: i32,
 }
 
 pub trait Row: Copy + Clone + 'static {
@@ -44,6 +45,7 @@ impl<R: Row> Board<R> {
             hold_piece: None,
             next_pieces: VecDeque::new(),
             bag: EnumSet::all(),
+            spawn: 20,
         }
     }
 
@@ -55,6 +57,7 @@ impl<R: Row> Board<R> {
         b2b: u32,
         combo: u32,
         pc_combo: u32,
+        spawn: i32,
     ) -> Self {
         let mut board = Board {
             cells: [*R::EMPTY; 40].into(),
@@ -70,6 +73,7 @@ impl<R: Row> Board<R> {
             } else {
                 bag_remain
             },
+            spawn
         };
         board.set_field(field);
         board
@@ -301,6 +305,7 @@ impl<R: Row> Board<R> {
             next_pieces: self.next_pieces.clone(),
             hold_piece: self.hold_piece,
             bag: self.bag,
+            spawn: self.spawn,
         }
     }
 

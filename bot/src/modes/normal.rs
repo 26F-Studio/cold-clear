@@ -32,7 +32,7 @@ pub enum ThinkResult<V, R> {
 impl<E: Evaluator> BotState<E> {
     pub fn new(board: Board, options: Options) -> Self {
         BotState {
-            tree: DagState::new(board, options.use_hold, options.spawn_rule.identification()),
+            tree: DagState::new(board, options.use_hold),
             options,
             forced_analysis_lines: vec![],
             outstanding_thinks: 0,
@@ -84,7 +84,6 @@ impl<E: Evaluator> BotState<E> {
 
     pub fn reset(&mut self, field: [[bool; 10]; 40], b2b: u32, combo: u32, pc_combo: u32, lines: u32, spawn: i32) {
         let plan = self.tree.get_plan();
-        self.options.spawn_rule = SpawnRule::RowVariable(spawn);
         if let Some(garbage_lines) = self.tree.reset(field, b2b, combo, pc_combo, lines, spawn) {
             for path in &mut self.forced_analysis_lines {
                 for mv in path {
@@ -165,7 +164,7 @@ impl<E: Evaluator> BotState<E> {
                 },
                 original_rank: child.original_rank,
                 plan,
-                spawn: self.options.spawn_rule,
+                spawn: self.tree.board().spawn,
             })
         };
 
@@ -309,5 +308,5 @@ pub struct Info {
     pub depth: u32,
     pub original_rank: u32,
     pub plan: Vec<(FallingPiece, LockResult)>,
-    pub spawn: SpawnRule,
+    pub spawn: i32,
 }

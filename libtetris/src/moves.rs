@@ -224,9 +224,9 @@ pub fn find_moves(board: &Board, mut spawned: FallingPiece, mode: MovementMode) 
 }
 
 fn lock_check(piece: FallingPiece, locks: &mut HashMap<FallingPiece, Placement>, moves: InputList) {
-    if piece.cells().iter().all(|&(_, y)| y >= 20) {
-        return;
-    }
+    // if piece.cells().iter().all(|&(_, y)| y >= 20) {
+    //     return;
+    // }
 
     // Since the first path to a location is always the shortest path to that location,
     // we know that if there is already an entry here this isn't a faster path, so only

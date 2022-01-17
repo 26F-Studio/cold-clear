@@ -95,7 +95,6 @@ pub struct DagState<E: 'static, R: 'static> {
     root: u32,
     gens_passed: u32,
     use_hold: bool,
-    spawn: i32
 }
 
 #[derive(Serialize, Deserialize)]
@@ -172,14 +171,13 @@ struct SimplifiedBoard<'c> {
 }
 
 impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
-    pub fn new(board: Board, use_hold: bool, spawn: i32) -> Self {
+    pub fn new(board: Board, use_hold: bool) -> Self {
         let mut this = DagState {
             board,
             generations: VecDeque::new(),
             root: 0,
             gens_passed: 0,
             use_hold,
-            spawn
         };
         this.init_generations();
         this
@@ -608,18 +606,14 @@ impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
         if b2b == self.board.b2b_gauge && combo == self.board.combo && pc_combo == self.board.pc_combo && lines == self.board.lines {
             let mut b = Board::<u16>::new();
             b.set_field(field);
-            let dif = if spawn != self.spawn {
-                self
+            let dif = self
                 .board
                 .column_heights()
                 .iter()
                 .zip(b.column_heights().iter())
                 .map(|(&y1, &y2)| y2 - y1)
                 .min()
-                .unwrap()
-            } else {
-                spawn - self.spawn
-            };
+                .unwrap();
             let mut is_garbage_receive = true;
             for y in 0..(40 - dif) {
                 if b.get_row(y + dif) != self.board.get_row(y) {
@@ -630,18 +624,7 @@ impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
             if is_garbage_receive {
                 garbage_lines = Some(dif);
             } else {
-                let mut is_spawn_change = true;
-                for y in 0..40 {
-                    if b.get_row(y) != self.board.get_row(y) {
-                        is_spawn_change = false;
-                        break;
-                    }
-                }
-                if is_spawn_change {
-                    garbage_lines = Some(dif);
-                } else {
-                    garbage_lines = None;
-                }
+                garbage_lines = None;
             }
         } else {
             garbage_lines = None;
@@ -652,7 +635,7 @@ impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
         self.board.b2b_gauge = b2b;
         self.board.pc_combo = pc_combo;
         self.board.lines = lines;
-        self.spawn = spawn;
+        self.board.spawn = spawn;
 
         self.gens_passed += self.generations.len() as u32 + 1;
         self.root = 0;

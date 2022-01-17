@@ -118,7 +118,7 @@ fn run(
     send: Sender<(Move, Info)>,
     mut board: Board,
     eval: impl Evaluator + 'static,
-    mut options: Options,
+    options: Options,
     book: Option<Arc<Book>>,
 ) {
     if options.threads == 0 {
@@ -135,7 +135,7 @@ fn run(
                 board.b2b_gauge = b2b_gauge;
                 board.lines = lines;
                 board.pc_combo = pc_combo;
-                options.spawn_rule = SpawnRule::RowVariable(spawn);
+                board.spawn = spawn;
             }
             Ok(BotMsg::SuggestMove(_)) => {}
             Ok(BotMsg::ForceAnalysisLine(_)) => {}

@@ -83,7 +83,7 @@ impl<'a, E: Evaluator> ModeSwitchedBot<'a, E> {
                 self.board.b2b_gauge = b2b_gauge;
                 self.board.lines = lines;
                 self.board.pc_combo = pc_combo;
-                self.options.spawn_rule = SpawnRule::RowVariable(spawn);
+                self.board.spawn = spawn;
                 match &mut self.mode {
                     Mode::Normal(bot) => bot.reset(field, b2b_gauge, combo, pc_combo, lines, spawn),
                     Mode::PcLoop(_) => {
