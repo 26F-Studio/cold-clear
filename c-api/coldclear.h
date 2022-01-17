@@ -30,10 +30,15 @@ typedef enum CCMovementMode {
     CC_HARD_DROP_ONLY
 } CCMovementMode;
 
-typedef enum CCSpawnRule {
-    CC_ROW_19_OR_20,
-    CC_ROW_21_AND_FALL,
-    CC_ROW_20
+typedef struct {
+    enum {
+        CC_ROW_19_OR_20,
+        CC_ROW_21_AND_FALL,
+        CC_ROW_VAR
+    } tag;
+    union {
+        int32_t n;
+    };
 } CCSpawnRule;
 
 typedef enum CCBotPollStatus {
@@ -58,6 +63,8 @@ typedef struct CCPlanPlacement {
 
     /* Expected lines that will be cleared after placement, with -1 indicating no line */
     int32_t cleared_lines[4];
+
+    uint32_t b2b_gauge, attack, extra;
 } CCPlanPlacement;
 
 typedef struct CCMove {
@@ -75,6 +82,7 @@ typedef struct CCMove {
     uint32_t nodes;
     uint32_t depth;
     uint32_t original_rank;
+    int32_t spawn;
 } CCMove;
 
 typedef struct CCOptions {
@@ -164,8 +172,8 @@ CCAsyncBot *cc_launch_async(CCOptions *options, CCWeights *weights, CCBook *book
  * Lifetime: The returned pointer is valid until it is passed to `cc_destroy_async`.
  */
 CCAsyncBot *cc_launch_with_board_async(CCOptions *options, CCWeights *weights, CCBook *book,
-    bool *field, uint32_t bag_remain, CCPiece *hold, bool b2b, uint32_t combo, CCPiece *queue,
-    uint32_t count);
+    bool *field, uint32_t bag_remain, CCPiece *hold, bool b2b, uint32_t combo, uint32_t pc_combo,
+    CCPiece *queue, uint32_t count);
 
 /* Terminates the bot thread and frees the memory associated with the bot.
  */
@@ -184,7 +192,8 @@ void cc_destroy_async(CCAsyncBot *bot);
  * The field parameter is a pointer to the start of an array of 400 booleans in row major order,
  * with index 0 being the bottom-left cell.
  */
-void cc_reset_async(CCAsyncBot *bot, bool *field, bool b2b, uint32_t combo);
+void cc_reset_async(CCAsyncBot *bot, bool *field, uint32_t b2b_gauge, uint32_t combo, uint32_t pc_combo,
+    uint32_t lines, int32_t spawn);
 
 /* Adds a new piece to the end of the queue.
  * 

@@ -718,7 +718,7 @@ impl Direction {
 pub enum SpawnRule {
     Row19Or20,
     Row21AndFall,
-    Row20,
+    RowVariable(i32),
 }
 
 impl SpawnRule {
@@ -751,11 +751,11 @@ impl SpawnRule {
                     return Some(spawned);
                 }
             }
-            SpawnRule::Row20 => {
+            SpawnRule::RowVariable(n) => {
                 let spawned = FallingPiece {
                     kind: PieceState(piece, RotationState::North),
                     x: 4,
-                    y: 20,
+                    y: n,
                     tspin: TspinStatus::None,
                 };
                 if !board.obstructed(&spawned) {
@@ -764,5 +764,13 @@ impl SpawnRule {
             }
         }
         None
+    }
+
+    pub fn identification(self) -> i32 {
+        match self {
+            SpawnRule::Row19Or20 => 19,
+            SpawnRule::Row21AndFall => 21,
+            SpawnRule::RowVariable(n) => n,
+        }
     }
 }

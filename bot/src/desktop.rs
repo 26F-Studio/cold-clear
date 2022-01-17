@@ -94,12 +94,15 @@ impl Interface {
     /// Note: combo is not the same as the displayed combo in guideline games. Here, it is the
     /// number of consecutive line clears achieved. So, generally speaking, if "x Combo" appears
     /// on the screen, you need to use x+1 here.
-    pub fn reset(&self, field: [[bool; 10]; 40], b2b_active: bool, combo: u32) {
+    pub fn reset(&self, field: [[bool; 10]; 40], b2b_active: u32, combo: u32, pc_combo: u32, lines: u32, spawn: i32) {
         self.send
             .send(BotMsg::Reset {
-                field,
-                b2b: b2b_active,
-                combo,
+                field: field,
+                b2b_gauge: b2b_active,
+                combo: combo,
+                pc_combo: pc_combo,
+                lines: lines,
+                spawn: spawn,
             })
             .ok();
     }
@@ -115,7 +118,7 @@ fn run(
     send: Sender<(Move, Info)>,
     mut board: Board,
     eval: impl Evaluator + 'static,
-    options: Options,
+    mut options: Options,
     book: Option<Arc<Book>>,
 ) {
     if options.threads == 0 {
@@ -126,10 +129,13 @@ fn run(
         match recv.recv() {
             Err(_) => return,
             Ok(BotMsg::NewPiece(piece)) => board.add_next_piece(piece),
-            Ok(BotMsg::Reset { field, b2b, combo }) => {
+            Ok(BotMsg::Reset { field, b2b_gauge, combo, pc_combo, lines, spawn }) => {
                 board.set_field(field);
                 board.combo = combo;
-                board.b2b_bonus = b2b;
+                board.b2b_gauge = b2b_gauge;
+                board.lines = lines;
+                board.pc_combo = pc_combo;
+                options.spawn_rule = SpawnRule::RowVariable(spawn);
             }
             Ok(BotMsg::SuggestMove(_)) => {}
             Ok(BotMsg::ForceAnalysisLine(_)) => {}

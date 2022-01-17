@@ -91,12 +91,6 @@ cenum! {
         CC_FLIP => PieceMovement::Flip
     }
 
-    enum CCSpawnRule => SpawnRule {
-        CC_ROW_19_OR_20 => SpawnRule::Row19Or20,
-        CC_ROW_21_AND_FALL => SpawnRule::Row21AndFall,
-        CC_ROW_20 => SpawnRule::Row20
-    }
-
     enum CCMovementMode => MovementMode {
         CC_0G => MovementMode::ZeroG,
         CC_20G => MovementMode::TwentyG,
@@ -107,6 +101,33 @@ cenum! {
         CC_PC_OFF => None,
         CC_PC_FASTEST => Some(PcPriority::Fastest),
         CC_PC_ATTACK => Some(PcPriority::HighestAttack)
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+#[allow(non_camel_case_types)]
+#[repr(C)]
+enum CCSpawnRule {
+    CC_ROW_19_OR_20,
+    CC_ROW_21_AND_FALL,
+    CC_ROW_VAR(i32),
+}
+impl From<SpawnRule> for CCSpawnRule {
+    fn from(v: SpawnRule) -> CCSpawnRule {
+        match v {
+            SpawnRule::Row19Or20 => CCSpawnRule::CC_ROW_19_OR_20,
+            SpawnRule::Row21AndFall => CCSpawnRule::CC_ROW_21_AND_FALL,
+            SpawnRule::RowVariable(n) => CCSpawnRule::CC_ROW_VAR(n),
+        }
+    }
+}
+impl From<CCSpawnRule> for SpawnRule {
+    fn from(v: CCSpawnRule) -> SpawnRule {
+        match v {
+            CCSpawnRule::CC_ROW_19_OR_20 => SpawnRule::Row19Or20,
+            CCSpawnRule::CC_ROW_21_AND_FALL => SpawnRule::Row21AndFall,
+            CCSpawnRule::CC_ROW_VAR(n) => SpawnRule::RowVariable(n),
+        }
     }
 }
 
@@ -130,6 +151,7 @@ struct CCMove {
     nodes: u32,
     depth: u32,
     original_rank: u32,
+    spawn: i32,
 }
 
 #[repr(C)]
@@ -140,6 +162,9 @@ struct CCPlanPlacement {
     expected_x: [u8; 4],
     expected_y: [u8; 4],
     cleared_lines: [i32; 4],
+    b2b_gauge: u32,
+    attack: u32,
+    extra: u32,
 }
 
 #[repr(C)]
@@ -267,8 +292,9 @@ unsafe extern "C" fn cc_launch_with_board_async(
     field: &[[bool; 10]; 40],
     bag_remain: u32,
     hold: *mut CCPiece,
-    b2b: bool,
+    b2b_gauge: u32,
     combo: u32,
+    pc_combo: u32,
     pieces: *const CCPiece,
     count: u32,
 ) -> *mut CCAsyncBot {
@@ -276,8 +302,9 @@ unsafe extern "C" fn cc_launch_with_board_async(
         *field,
         EnumSet::try_from_u32(bag_remain).unwrap_or_default(),
         convert_hold(hold),
-        b2b,
+        b2b_gauge,
         combo,
+        pc_combo
     );
     for i in 0..count as usize {
         board.add_next_piece((*pieces.add(i)).into());
@@ -333,10 +360,13 @@ extern "C" fn cc_destroy_async(bot: *mut CCAsyncBot) {
 extern "C" fn cc_reset_async(
     bot: &mut CCAsyncBot,
     field: &[[bool; 10]; 40],
-    b2b: bool,
+    b2b_gauge: u32,
     combo: u32,
+    pc_combo: u32,
+    lines: u32,
+    spawn: i32,
 ) {
-    bot.reset(*field, b2b, combo);
+    bot.reset(*field, b2b_gauge, combo, pc_combo, lines, spawn);
 }
 
 #[no_mangle]
@@ -370,6 +400,9 @@ fn convert_plan_placement(
         expected_x: expected_x,
         expected_y: expected_y,
         cleared_lines: cleared_lines,
+        b2b_gauge: lock_result.b2b,
+        attack: lock_result.garbage_sent,
+        extra: (lock_result.placement_kind.extra() + lock_result.perfect_clear.extra()).floor() as u32,
     }
 }
 
@@ -421,6 +454,10 @@ fn convert(m: libtetris::Move, info: cold_clear::Info) -> CCMove {
             cold_clear::Info::PcLoop(_) => 0,
             cold_clear::Info::Book => 0,
         },
+        spawn: match &info {
+            cold_clear::Info::Normal(info) => info.spawn.identification(),
+            _ => 0,
+        }
     }
 }
 

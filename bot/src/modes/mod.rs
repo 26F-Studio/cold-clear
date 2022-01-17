@@ -77,12 +77,15 @@ impl<'a, E: Evaluator> ModeSwitchedBot<'a, E> {
 
     pub fn message(&mut self, msg: BotMsg) {
         match msg {
-            BotMsg::Reset { field, b2b, combo } => {
+            BotMsg::Reset { field, b2b_gauge, combo, pc_combo, lines, spawn } => {
                 self.board.set_field(field);
-                self.board.b2b_bonus = b2b;
                 self.board.combo = combo;
+                self.board.b2b_gauge = b2b_gauge;
+                self.board.lines = lines;
+                self.board.pc_combo = pc_combo;
+                self.options.spawn_rule = SpawnRule::RowVariable(spawn);
                 match &mut self.mode {
-                    Mode::Normal(bot) => bot.reset(field, b2b, combo),
+                    Mode::Normal(bot) => bot.reset(field, b2b_gauge, combo, pc_combo, lines, spawn),
                     Mode::PcLoop(_) => {
                         self.mode =
                             Mode::Normal(normal::BotState::new(self.board.clone(), self.options))

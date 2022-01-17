@@ -12,7 +12,9 @@ pub struct Board<R = u16> {
     cells: ArrayVec<[R; 40]>,
     column_heights: [i32; 10],
     pub combo: u32,
-    pub b2b_bonus: bool,
+    pub pc_combo: u32,
+    pub lines: u32,
+    pub b2b_gauge: u32,
     pub hold_piece: Option<Piece>,
     next_pieces: VecDeque<Piece>,
     pub bag: EnumSet<Piece>,
@@ -36,7 +38,9 @@ impl<R: Row> Board<R> {
             cells: [*R::EMPTY; 40].into(),
             column_heights: [0; 10],
             combo: 0,
-            b2b_bonus: false,
+            pc_combo: 0,
+            lines: 0,
+            b2b_gauge: 0,
             hold_piece: None,
             next_pieces: VecDeque::new(),
             bag: EnumSet::all(),
@@ -48,14 +52,17 @@ impl<R: Row> Board<R> {
         field: [[bool; 10]; 40],
         bag_remain: EnumSet<Piece>,
         hold: Option<Piece>,
-        b2b: bool,
+        b2b: u32,
         combo: u32,
+        pc_combo: u32,
     ) -> Self {
         let mut board = Board {
             cells: [*R::EMPTY; 40].into(),
             column_heights: [0; 10],
             combo: combo,
-            b2b_bonus: b2b,
+            pc_combo: pc_combo,
+            lines: 0,
+            b2b_gauge: b2b,
             hold_piece: hold,
             next_pieces: VecDeque::new(),
             bag: if bag_remain.is_empty() {
@@ -161,76 +168,75 @@ impl<R: Row> Board<R> {
     /// Clears lines, detects clear kind, calculates garbage, maintains combo and back-to-back
     /// state, detects perfect clears, detects lockout.
     pub fn lock_piece(&mut self, piece: FallingPiece) -> LockResult {
-        let locked_out = false;
         for &(x, y) in &piece.cells() {
             self.cells[y as usize].set(x as usize, piece.kind.0.color());
             if self.column_heights[x as usize] < y + 1 {
                 self.column_heights[x as usize] = y + 1;
             }
-            // if y < 20 {
-            //     locked_out = false;
-            // }
         }
+        let ys = {
+            let mut ys: Vec<_> = piece.cells().iter().map(|&(_, y)| y).collect();
+            ys.sort_unstable();
+            ys.dedup();
+            ys
+        };
         let cleared = self.remove_cleared_lines();
 
-        let tspin = {
-            let mut tspin = piece.tspin;
-            if tspin == TspinStatus::Mini && cleared.len() > 0 {
-                let mut ys: Vec<_> = piece.cells().iter().map(|&(_, y)| y).collect();
-                ys.sort_unstable();
-                ys.dedup();
-                if ys.len() == cleared.len() {
-                    tspin = TspinStatus::Full;
-                }
-            }
-            tspin
+        let lines = cleared.len();
+
+        let full_clear = ys.len() == lines;
+        let not_clear = lines == 0;
+
+        let tspin = if piece.tspin == TspinStatus::Mini && (full_clear || not_clear) {
+            TspinStatus::Full
+        } else {
+            piece.tspin
         };
 
-        let placement_kind = PlacementKind::get(cleared.len(), tspin);
-
-        let mut garbage_sent = placement_kind.garbage();
-
-        let mut did_b2b = false;
-        if placement_kind.is_clear() {
-            if placement_kind.is_hard() {
-                if self.b2b_bonus {
-                    garbage_sent += 1;
-                    did_b2b = true;
-                }
-                self.b2b_bonus = true;
+        let clear_kind = match (self.column_heights.iter().max(), ys.iter().min()) {
+            (Some(&m), Some(&y)) => if m == 0 {
+                ClearKind::All
+            } else if m <= y && ys.len() > 1 {
+                ClearKind::Half
             } else {
-                self.b2b_bonus = false;
-            }
+                ClearKind::None
+            },
+            _ => unreachable!(),
+        };
 
-            if self.combo as usize >= COMBO_GARBAGE.len() {
-                garbage_sent += COMBO_GARBAGE.last().unwrap();
+        let placement_kind = PlacementKind::get(lines, tspin, self.b2b_gauge);
+        let b2b = clear_kind.new_gauge(placement_kind.new_gauge(self.b2b_gauge), self.lines + lines as u32).clamp(0, 1000);
+        let pc_combo = self.pc_combo
+            + if clear_kind == ClearKind::All {
+                1
             } else {
-                garbage_sent += COMBO_GARBAGE[self.combo as usize];
-            }
-
-            self.combo += 1;
+                0
+            };
+        let combo = if placement_kind.cleared == 0 {
+            0
         } else {
-            self.combo = 0;
-        }
+            self.combo + 1
+        };
 
-        let perfect_clear = self.column_heights == [0; 10];
-        if perfect_clear {
-            garbage_sent = 10;
-        }
+        let no_combo_sent = clear_kind.garbage(self.pc_combo, placement_kind.garbage());
+        let garbage_sent = clear_kind.garbage(self.pc_combo, combo_garbage(self.combo, placement_kind.garbage(), lines as u32));
 
         let l = LockResult {
-            placement_kind,
-            garbage_sent,
-            perfect_clear,
-            locked_out,
-            combo: if self.combo == 0 {
-                None
-            } else {
-                Some(self.combo - 1)
-            },
-            b2b: did_b2b,
+            placement_kind: placement_kind,
+            locked_out: false,
+            b2b: b2b,
+            perfect_clear: clear_kind,
+            pc_combo: pc_combo,
+            combo: if combo == 0 { None } else { Some(combo - 1) },
+            garbage_sent: garbage_sent.max(0.).floor() as u32,
+            no_combo_sent: no_combo_sent.max(0.).floor() as u32,
             cleared_lines: cleared,
         };
+
+        self.combo = combo;
+        self.pc_combo = pc_combo;
+        self.b2b_gauge = b2b;
+        self.lines += lines as u32;
 
         l
     }
@@ -287,7 +293,9 @@ impl<R: Row> Board<R> {
                     row
                 })
                 .collect(),
-            b2b_bonus: self.b2b_bonus,
+            b2b_gauge: self.b2b_gauge,
+            pc_combo: self.pc_combo,
+            lines: self.lines,
             combo: self.combo,
             column_heights: self.column_heights,
             next_pieces: self.next_pieces.clone(),

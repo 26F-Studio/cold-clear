@@ -95,6 +95,7 @@ pub struct DagState<E: 'static, R: 'static> {
     root: u32,
     gens_passed: u32,
     use_hold: bool,
+    spawn: i32
 }
 
 #[derive(Serialize, Deserialize)]
@@ -164,18 +165,21 @@ struct SimplifiedBoard<'c> {
     combo: u32,
     bag: EnumSet<Piece>,
     reserve: Piece,
-    back_to_back: bool,
+    back_to_back: u32,
+    lines: u32,
+    pc_combo: u32,
     reserve_is_hold: bool,
 }
 
 impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
-    pub fn new(board: Board, use_hold: bool) -> Self {
+    pub fn new(board: Board, use_hold: bool, spawn: i32) -> Self {
         let mut this = DagState {
             board,
             generations: VecDeque::new(),
             root: 0,
             gens_passed: 0,
             use_hold,
+            spawn
         };
         this.init_generations();
         this
@@ -599,19 +603,23 @@ impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
         plan
     }
 
-    pub fn reset(&mut self, field: [[bool; 10]; 40], b2b: bool, combo: u32) -> Option<i32> {
+    pub fn reset(&mut self, field: [[bool; 10]; 40], b2b: u32, combo: u32, pc_combo: u32, lines: u32, spawn: i32) -> Option<i32> {
         let garbage_lines;
-        if b2b == self.board.b2b_bonus && combo == self.board.combo {
+        if b2b == self.board.b2b_gauge && combo == self.board.combo && pc_combo == self.board.pc_combo && lines == self.board.lines {
             let mut b = Board::<u16>::new();
             b.set_field(field);
-            let dif = self
+            let dif = if spawn != self.spawn {
+                self
                 .board
                 .column_heights()
                 .iter()
                 .zip(b.column_heights().iter())
                 .map(|(&y1, &y2)| y2 - y1)
                 .min()
-                .unwrap();
+                .unwrap()
+            } else {
+                spawn - self.spawn
+            };
             let mut is_garbage_receive = true;
             for y in 0..(40 - dif) {
                 if b.get_row(y + dif) != self.board.get_row(y) {
@@ -622,7 +630,18 @@ impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
             if is_garbage_receive {
                 garbage_lines = Some(dif);
             } else {
-                garbage_lines = None;
+                let mut is_spawn_change = true;
+                for y in 0..40 {
+                    if b.get_row(y) != self.board.get_row(y) {
+                        is_spawn_change = false;
+                        break;
+                    }
+                }
+                if is_spawn_change {
+                    garbage_lines = Some(dif);
+                } else {
+                    garbage_lines = None;
+                }
             }
         } else {
             garbage_lines = None;
@@ -630,7 +649,10 @@ impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
 
         self.board.set_field(field);
         self.board.combo = combo;
-        self.board.b2b_bonus = b2b;
+        self.board.b2b_gauge = b2b;
+        self.board.pc_combo = pc_combo;
+        self.board.lines = lines;
+        self.spawn = spawn;
 
         self.gens_passed += self.generations.len() as u32 + 1;
         self.root = 0;
@@ -788,7 +810,9 @@ fn build_children<'arena, E: Evaluation<R> + 'static, R: Clone + 'static>(
 
         let simple_board = SimplifiedBoard {
             grid: &simple_grid,
-            back_to_back: data.board.b2b_bonus,
+            back_to_back: data.board.b2b_gauge,
+            pc_combo: data.board.pc_combo,
+            lines: data.board.lines,
             combo: data.board.combo,
             bag: data.board.next_bag(),
             reserve: if hold_allowed {

@@ -182,52 +182,59 @@ impl Evaluator for Standard {
         let mut transient_eval = 0;
         let mut acc_eval = 0;
 
-        if lock.perfect_clear {
-            acc_eval += self.perfect_clear;
+        match lock.perfect_clear {
+            ClearKind::All => { acc_eval += self.perfect_clear },
+            ClearKind::Half => { acc_eval += self.perfect_clear * 4 / (8 + board.pc_combo as i32 * 2).clamp(8, 16) },
+            _ => {},
         }
-        if self.stack_pc_damage || !lock.perfect_clear {
-            if lock.b2b {
-                acc_eval += self.b2b_clear;
+        if self.stack_pc_damage || lock.perfect_clear != ClearKind::All { // half?
+            if lock.placement_kind.is_clear() && lock.b2b >= 50 { // b3b?
+                if lock.b2b > 800 {
+                    acc_eval += 2*self.b2b_clear;
+                } else {
+                    acc_eval += self.b2b_clear;
+                }
             }
             if let Some(combo) = lock.combo {
-                let combo = combo.min(11) as usize;
-                acc_eval += self.combo_garbage * libtetris::COMBO_GARBAGE[combo] as i32;
+                acc_eval += self.combo_garbage * (lock.garbage_sent as i32 - lock.no_combo_sent as i32);
             }
-            match lock.placement_kind {
-                PlacementKind::Clear1 => {
+            use TspinStatus::*;
+            use B2BKind::*;
+            match (lock.placement_kind.cleared, lock.placement_kind.tspin, lock.placement_kind.b2b) {
+                (0, _, _) => {},
+                (1, None, _) => {
                     acc_eval += self.clear1;
                 }
-                PlacementKind::Clear2 => {
+                (2, None, _) => {
                     acc_eval += self.clear2;
                 }
-                PlacementKind::Clear3 => {
+                (3, None, _) => {
                     acc_eval += self.clear3;
                 }
-                PlacementKind::Clear4 => {
+                (4, _, _) => {
                     acc_eval += self.clear4;
                 }
-                PlacementKind::Tspin1 => {
+                (1, Full, _) => {
                     acc_eval += self.tspin1;
                 }
-                PlacementKind::Tspin2 => {
+                (2, Full, _) => {
                     acc_eval += self.tspin2;
                 }
-                PlacementKind::Tspin3 => {
+                (_, Full, _) => {
                     acc_eval += self.tspin3;
                 }
-                PlacementKind::MiniTspin1 => {
+                (1, Mini, _) => {
                     acc_eval += self.mini_tspin1;
                 }
-                PlacementKind::MiniTspin2 => {
+                (_, Mini, _) => {
                     acc_eval += self.mini_tspin2;
                 }
                 _ => {}
             }
         }
 
-        match lock.placement_kind {
-            PlacementKind::Tspin1 | PlacementKind::Tspin2 | PlacementKind::Tspin3 => {}
-            _ => acc_eval += self.wasted_t,
+        if lock.placement_kind.tspin != TspinStatus::Full {
+            acc_eval += self.wasted_t;
         }
 
         // magic approximation of line clear delay
@@ -238,7 +245,7 @@ impl Evaluator for Standard {
         };
         acc_eval += self.move_time * move_time;
 
-        if board.b2b_bonus {
+        if board.b2b_gauge >= 50 { // b3b?
             transient_eval += self.back_to_back;
         }
 
@@ -653,20 +660,20 @@ fn cutout_tslot(mut board: Board, mut piece: FallingPiece) -> Cutout {
     piece.tspin = TspinStatus::Full;
     let result = board.lock_piece(piece);
 
-    match result.placement_kind {
-        PlacementKind::Tspin => Cutout {
+    match result.placement_kind.cleared {
+        0 => Cutout {
             lines: 0,
             result: None,
         },
-        PlacementKind::Tspin1 => Cutout {
+        1 => Cutout {
             lines: 1,
             result: None,
         },
-        PlacementKind::Tspin2 => Cutout {
+        2 => Cutout {
             lines: 2,
             result: Some(board),
         },
-        PlacementKind::Tspin3 => Cutout {
+        3 => Cutout {
             lines: 3,
             result: Some(board),
         },

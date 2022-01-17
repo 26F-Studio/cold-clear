@@ -32,7 +32,7 @@ pub enum ThinkResult<V, R> {
 impl<E: Evaluator> BotState<E> {
     pub fn new(board: Board, options: Options) -> Self {
         BotState {
-            tree: DagState::new(board, options.use_hold),
+            tree: DagState::new(board, options.use_hold, options.spawn_rule.identification()),
             options,
             forced_analysis_lines: vec![],
             outstanding_thinks: 0,
@@ -82,9 +82,10 @@ impl<E: Evaluator> BotState<E> {
         self.tree.add_next_piece(piece);
     }
 
-    pub fn reset(&mut self, field: [[bool; 10]; 40], b2b: bool, combo: u32) {
+    pub fn reset(&mut self, field: [[bool; 10]; 40], b2b: u32, combo: u32, pc_combo: u32, lines: u32, spawn: i32) {
         let plan = self.tree.get_plan();
-        if let Some(garbage_lines) = self.tree.reset(field, b2b, combo) {
+        self.options.spawn_rule = SpawnRule::RowVariable(spawn);
+        if let Some(garbage_lines) = self.tree.reset(field, b2b, combo, pc_combo, lines, spawn) {
             for path in &mut self.forced_analysis_lines {
                 for mv in path {
                     mv.y += garbage_lines;
@@ -164,6 +165,7 @@ impl<E: Evaluator> BotState<E> {
                 },
                 original_rank: child.original_rank,
                 plan,
+                spawn: self.options.spawn_rule,
             })
         };
 
@@ -289,16 +291,14 @@ impl Thinker {
             let mut result = board.clone();
             let lock = result.lock_piece(mv.location);
             // Don't add deaths by lock out, don't add useless mini tspins
-            if !lock.locked_out && !(can_be_hd && lock.placement_kind == PlacementKind::MiniTspin) {
-                let move_time = mv.inputs.time + if hold { 1 } else { 0 };
-                let (evaluation, reward) = eval.evaluate(&lock, &result, move_time, spawned.kind.0);
-                children.push(ChildData {
-                    evaluation,
-                    reward,
-                    board: result,
-                    mv: mv.location,
-                });
-            }
+            let move_time = mv.inputs.time + if hold { 1 } else { 0 };
+            let (evaluation, reward) = eval.evaluate(&lock, &result, move_time, spawned.kind.0);
+            children.push(ChildData {
+                evaluation,
+                reward,
+                board: result,
+                mv: mv.location,
+            });
         }
     }
 }
@@ -309,4 +309,5 @@ pub struct Info {
     pub depth: u32,
     pub original_rank: u32,
     pub plan: Vec<(FallingPiece, LockResult)>,
+    pub spawn: SpawnRule,
 }
