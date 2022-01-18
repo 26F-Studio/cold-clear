@@ -141,7 +141,7 @@ struct CCPlanPlacement {
     expected_x: [u8; 4],
     expected_y: [u8; 4],
     cleared_lines: [i32; 4],
-    b2b_gauge: u32,
+    b2b_gauge: i32,
     attack: u32,
     extra: u32,
 }
@@ -271,7 +271,7 @@ unsafe extern "C" fn cc_launch_with_board_async(
     field: &[[bool; 10]; 40],
     bag_remain: u32,
     hold: *mut CCPiece,
-    b2b_gauge: u32,
+    b2b_gauge: i32,
     combo: u32,
     pc_combo: u32,
     pieces: *const CCPiece,
@@ -340,7 +340,7 @@ extern "C" fn cc_destroy_async(bot: *mut CCAsyncBot) {
 extern "C" fn cc_reset_async(
     bot: &mut CCAsyncBot,
     field: &[[bool; 10]; 40],
-    b2b_gauge: u32,
+    b2b_gauge: i32,
     combo: u32,
     pc_combo: u32,
     lines: u32,

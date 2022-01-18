@@ -14,7 +14,7 @@ pub struct Board<R = u16> {
     pub combo: u32,
     pub pc_combo: u32,
     pub lines: u32,
-    pub b2b_gauge: u32,
+    pub b2b_gauge: i32,
     pub hold_piece: Option<Piece>,
     next_pieces: VecDeque<Piece>,
     pub bag: EnumSet<Piece>,
@@ -54,7 +54,7 @@ impl<R: Row> Board<R> {
         field: [[bool; 10]; 40],
         bag_remain: EnumSet<Piece>,
         hold: Option<Piece>,
-        b2b: u32,
+        b2b: i32,
         combo: u32,
         pc_combo: u32,
         spawn: i32,
@@ -73,7 +73,7 @@ impl<R: Row> Board<R> {
             } else {
                 bag_remain
             },
-            spawn
+            spawn,
         };
         board.set_field(field);
         board
@@ -198,24 +198,27 @@ impl<R: Row> Board<R> {
         };
 
         let clear_kind = match (self.column_heights.iter().max(), ys.iter().min()) {
-            (Some(&m), Some(&y)) => if m == 0 {
-                ClearKind::All
-            } else if m <= y && ys.len() > 1 {
-                ClearKind::Half
-            } else {
-                ClearKind::None
-            },
+            (Some(&m), Some(&y)) => {
+                if m == 0 {
+                    ClearKind::All
+                } else if m <= y && ys.len() > 1 {
+                    ClearKind::Half
+                } else {
+                    ClearKind::None
+                }
+            }
             _ => unreachable!(),
         };
 
         let placement_kind = PlacementKind::get(lines, tspin, self.b2b_gauge);
-        let b2b = clear_kind.new_gauge(placement_kind.new_gauge(self.b2b_gauge), self.lines + lines as u32).clamp(0, 1000);
-        let pc_combo = self.pc_combo
-            + if clear_kind == ClearKind::All {
-                1
-            } else {
-                0
-            };
+        let b2b = clear_kind
+            .new_gauge(
+                placement_kind.new_gauge(self.b2b_gauge),
+                self.lines + lines as u32,
+                placement_kind.is_normal_clear(),
+            )
+            .clamp(0, 1000);
+        let pc_combo = self.pc_combo + if clear_kind == ClearKind::All { 1 } else { 0 };
         let combo = if placement_kind.cleared == 0 {
             0
         } else {
@@ -223,7 +226,10 @@ impl<R: Row> Board<R> {
         };
 
         let no_combo_sent = clear_kind.garbage(self.pc_combo, placement_kind.garbage());
-        let garbage_sent = clear_kind.garbage(self.pc_combo, combo_garbage(self.combo, placement_kind.garbage(), lines as u32));
+        let garbage_sent = clear_kind.garbage(
+            self.pc_combo,
+            combo_garbage(self.combo, placement_kind.garbage(), lines as u32),
+        );
 
         let l = LockResult {
             placement_kind: placement_kind,

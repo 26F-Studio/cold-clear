@@ -40,7 +40,7 @@ enum BotMsg {
     Reset {
         #[serde(with = "BigArray")]
         field: [[bool; 10]; 40],
-        b2b_gauge: u32,
+        b2b_gauge: i32,
         combo: u32,
         pc_combo: u32,
         lines: u32,

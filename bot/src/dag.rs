@@ -164,7 +164,7 @@ struct SimplifiedBoard<'c> {
     combo: u32,
     bag: EnumSet<Piece>,
     reserve: Piece,
-    back_to_back: u32,
+    back_to_back: i32,
     lines: u32,
     pc_combo: u32,
     reserve_is_hold: bool,
@@ -601,7 +601,7 @@ impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
         plan
     }
 
-    pub fn reset(&mut self, field: [[bool; 10]; 40], b2b: u32, combo: u32, pc_combo: u32, lines: u32, spawn: i32) -> Option<i32> {
+    pub fn reset(&mut self, field: [[bool; 10]; 40], b2b: i32, combo: u32, pc_combo: u32, lines: u32, spawn: i32) -> Option<i32> {
         let garbage_lines;
         if b2b == self.board.b2b_gauge && combo == self.board.combo && pc_combo == self.board.pc_combo && lines == self.board.lines {
             let mut b = Board::<u16>::new();

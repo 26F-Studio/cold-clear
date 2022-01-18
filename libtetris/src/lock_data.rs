@@ -8,7 +8,7 @@ use crate::piece::TspinStatus;
 pub struct LockResult {
     pub placement_kind: PlacementKind,
     pub locked_out: bool,
-    pub b2b: u32,
+    pub b2b: i32,
     pub perfect_clear: ClearKind,
     pub pc_combo: u32,
     pub combo: Option<u32>,
@@ -43,13 +43,20 @@ impl ClearKind {
             All => 2.,
         }
     }
-    pub fn new_gauge(self, b2b_gauge: u32, lines_this_match: u32) -> u32 {
+    pub fn new_gauge(self, b2b_gauge: i32, lines_this_match: u32, is_normal: bool) -> i32 {
         use ClearKind::*;
-        match self {
+        (match self {
             None => b2b_gauge,
             Half => b2b_gauge + 100,
             All if lines_this_match <= 4 => b2b_gauge,
             All => b2b_gauge + 800,
+        }) + if is_normal {
+            match self {
+                None => 0,
+                _ => 250,
+            }
+        } else {
+            0
         }
     }
 }
@@ -119,7 +126,7 @@ impl PlacementKind {
         }
     }
 
-    pub fn new_gauge(self, b2b_gauge: u32) -> u32 {
+    pub fn new_gauge(self, b2b_gauge: i32) -> i32 {
         use TspinStatus::*;
         if self.cleared == 0 {
             let theory = if self.tspin != None {
@@ -154,7 +161,7 @@ impl PlacementKind {
                     _ => unreachable!(),
                 }
         } else {
-            b2b_gauge.max(250) - 250
+            b2b_gauge - 250
         }
         // no clamp is applied here because temporary result can be out of range
     }
@@ -163,7 +170,7 @@ impl PlacementKind {
         self.cleared != 0
     }
 
-    pub(crate) fn get(cleared: usize, tspin: TspinStatus, b2b_gauge: u32) -> Self {
+    pub(crate) fn get(cleared: usize, tspin: TspinStatus, b2b_gauge: i32) -> Self {
         use B2BKind::*;
         use TspinStatus::*;
         PlacementKind {
@@ -217,6 +224,10 @@ impl PlacementKind {
 
     pub fn short_name(self) -> String {
         return self.name();
+    }
+
+    pub(crate) fn is_normal_clear(self) -> bool {
+        self.cleared > 0 && self.cleared < 4 && self.tspin == TspinStatus::None
     }
 }
 

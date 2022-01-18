@@ -94,7 +94,7 @@ impl Interface {
     /// Note: combo is not the same as the displayed combo in guideline games. Here, it is the
     /// number of consecutive line clears achieved. So, generally speaking, if "x Combo" appears
     /// on the screen, you need to use x+1 here.
-    pub fn reset(&self, field: [[bool; 10]; 40], b2b_active: u32, combo: u32, pc_combo: u32, lines: u32, spawn: i32) {
+    pub fn reset(&self, field: [[bool; 10]; 40], b2b_active: i32, combo: u32, pc_combo: u32, lines: u32, spawn: i32) {
         self.send
             .send(BotMsg::Reset {
                 field: field,

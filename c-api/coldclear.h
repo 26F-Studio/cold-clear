@@ -58,8 +58,9 @@ typedef struct CCPlanPlacement {
 
     /* Expected lines that will be cleared after placement, with -1 indicating no line */
     int32_t cleared_lines[4];
-
-    uint32_t b2b_gauge, attack, extra;
+    
+    int32_t b2b_gauge;
+    uint32_t attack, extra;
 } CCPlanPlacement;
 
 typedef struct CCMove {
@@ -167,7 +168,7 @@ CCAsyncBot *cc_launch_async(CCOptions *options, CCWeights *weights, CCBook *book
  * Lifetime: The returned pointer is valid until it is passed to `cc_destroy_async`.
  */
 CCAsyncBot *cc_launch_with_board_async(CCOptions *options, CCWeights *weights, CCBook *book,
-    bool *field, uint32_t bag_remain, CCPiece *hold, bool b2b, uint32_t combo, uint32_t pc_combo,
+    bool *field, uint32_t bag_remain, CCPiece *hold, int32_t b2b, uint32_t combo, uint32_t pc_combo,
     CCPiece *queue, uint32_t count);
 
 /* Terminates the bot thread and frees the memory associated with the bot.
@@ -187,7 +188,7 @@ void cc_destroy_async(CCAsyncBot *bot);
  * The field parameter is a pointer to the start of an array of 400 booleans in row major order,
  * with index 0 being the bottom-left cell.
  */
-void cc_reset_async(CCAsyncBot *bot, bool *field, uint32_t b2b_gauge, uint32_t combo, uint32_t pc_combo,
+void cc_reset_async(CCAsyncBot *bot, bool *field, int32_t b2b_gauge, uint32_t combo, uint32_t pc_combo,
     uint32_t lines, int32_t spawn);
 
 /* Adds a new piece to the end of the queue.

@@ -82,7 +82,7 @@ impl<E: Evaluator> BotState<E> {
         self.tree.add_next_piece(piece);
     }
 
-    pub fn reset(&mut self, field: [[bool; 10]; 40], b2b: u32, combo: u32, pc_combo: u32, lines: u32, spawn: i32) {
+    pub fn reset(&mut self, field: [[bool; 10]; 40], b2b: i32, combo: u32, pc_combo: u32, lines: u32, spawn: i32) {
         let plan = self.tree.get_plan();
         if let Some(garbage_lines) = self.tree.reset(field, b2b, combo, pc_combo, lines, spawn) {
             for path in &mut self.forced_analysis_lines {
