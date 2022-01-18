@@ -232,5 +232,5 @@ impl Default for PlacementKind {
 
 pub fn combo_garbage(combo: u32, other_garbage: f32, cleared: u32) -> f32 {
     other_garbage * (1. + combo.clamp(0, 12) as f32 * if cleared == 1 { 0.15 } else { 0.25 })
-        + if combo >= 3 && cleared > 0 { 1. } else { 0. }
+        + if combo >= 2 && cleared > 0 { 1. } else { 0. }
 }
