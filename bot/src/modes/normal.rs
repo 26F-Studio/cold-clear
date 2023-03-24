@@ -285,8 +285,6 @@ impl Thinker {
         hold: bool,
     ) {
         for mv in find_moves(&board, spawned, self.options.mode) {
-            let can_be_hd =
-                board.above_stack(&mv.location) && board.column_heights().iter().all(|&y| y < 18);
             let mut result = board.clone();
             let lock = result.lock_piece(mv.location);
             // Don't add deaths by lock out, don't add useless mini tspins

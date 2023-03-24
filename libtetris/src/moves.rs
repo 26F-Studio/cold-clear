@@ -60,7 +60,8 @@ pub fn find_moves(board: &Board, mut spawned: FallingPiece, mode: MovementMode) 
     let mut check_queue = Vec::with_capacity(64);
     let fast_mode;
 
-    if board.column_heights().iter().all(|&v| v < 16) {
+    let safe_height = spawned.y - 4;
+    if board.column_heights().iter().all(|&v| v < safe_height) {
         // We know that we can reach any column and rotation state without bumping into the terrain
         // at 0G here, so we can just grab those starting positions.
         let starts = match mode {
