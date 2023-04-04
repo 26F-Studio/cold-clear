@@ -1,23 +1,15 @@
-use libtetris::Piece;
 use mlua::prelude::*;
 
 struct CCBot(cold_clear::Interface);
 trait ToPiece {
-    fn to_piece(self) -> Piece;
+    fn to_piece(self) -> libtetris::Piece;
 }
 
 impl ToPiece for LuaInteger {
-    fn to_piece(self) -> Piece {
-        match self {
-            1 => Piece::I,
-            2 => Piece::O,
-            3 => Piece::T,
-            4 => Piece::J,
-            5 => Piece::L,
-            6 => Piece::S,
-            7 => Piece::Z,
-            _ => panic!("invalid piece"),
-        }
+    fn to_piece(self) -> libtetris::Piece {
+        use libtetris::Piece::*;
+        const ARR: [libtetris::Piece; 7] = [I, O, T, J, L, S, Z];
+        ARR[self as usize - 1]
     }
 }
 
