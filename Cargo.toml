@@ -11,7 +11,8 @@ members = [
     "optimizer",
     "opening-book/book-builder",
     "opening-book/pc-gen",
-    "tbp"
+    "tbp",
+    "lua-api",
 ]
 
 [profile.release]

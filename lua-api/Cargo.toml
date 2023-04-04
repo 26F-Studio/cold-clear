@@ -1,0 +1,16 @@
+[package]
+name = "lua-api"
+version = "0.1.0"
+authors = ["flaribbit <1149761294@qq.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "cold_clear"
+crate-type = ["cdylib"]
+
+[dependencies]
+cold-clear = { path = "../bot" }
+libtetris = { path = "../libtetris" }
+mlua = { version = "0.8", features = ["luajit", "module"] }
