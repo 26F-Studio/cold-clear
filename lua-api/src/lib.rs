@@ -40,6 +40,20 @@ fn get_dest(m: &libtetris::Move) -> [[LuaInteger; 2]; 4] {
     ret
 }
 
+fn convert_movement(m: &[libtetris::PieceMovement]) -> Vec<LuaInteger> {
+    use libtetris::PieceMovement;
+    m.iter()
+        .map(|e| match e {
+            PieceMovement::Left => 0,
+            PieceMovement::Right => 1,
+            PieceMovement::Cw => 2,
+            PieceMovement::Ccw => 3,
+            PieceMovement::SonicDrop => 4,
+            PieceMovement::Flip => 5,
+        })
+        .collect()
+}
+
 impl LuaUserData for CCBot {
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
         methods.add_method_mut("reset", |_, this, (field, b2b_active, combo)| {
@@ -55,7 +69,7 @@ impl LuaUserData for CCBot {
             this.0.suggest_next_move(incoming.unwrap_or_default());
             Ok(())
         });
-        methods.add_method_mut("getMove", |lua, this, ()| match this.0.poll_next_move() {
+        methods.add_method_mut("getMove", |_, this, ()| match this.0.poll_next_move() {
             // result,dest,hold,move,b2b,attack,extra,spawn=pcall(ccBot.getMove,ccBot)
             Ok((m, info)) => {
                 let plan = &info.plan()[0];
@@ -75,7 +89,7 @@ impl LuaUserData for CCBot {
                     0,
                     Some(dest),
                     Some(hold),
-                    Some(m.inputs),
+                    Some(convert_movement(m.inputs.as_ref())),
                     Some(b2b),
                     Some(attack),
                     Some(extra),
@@ -89,7 +103,7 @@ impl LuaUserData for CCBot {
                 return Ok((2, None, None, None, None, None, None, None));
             }
         });
-        methods.add_method_mut("blockNextMove", |_, this, ()| Ok(()));
+        methods.add_method_mut("blockNextMove", |_, _, ()| Ok(()));
     }
 }
 
