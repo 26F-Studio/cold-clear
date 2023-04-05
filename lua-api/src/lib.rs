@@ -102,11 +102,43 @@ impl LuaUserData for CCBot {
 }
 
 impl LuaUserData for CCOptions {
-    // todo
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        methods.add_method_mut("setHold", |_, this, x: bool| {
+            this.0.use_hold = x;
+            Ok(())
+        });
+        methods.add_method_mut("set20G", |_, this, x: bool| {
+            this.0.mode = match x {
+                true => libtetris::MovementMode::TwentyG,
+                false => libtetris::MovementMode::ZeroG,
+            };
+            Ok(())
+        });
+        methods.add_method_mut("setBag", |_, this, x: bool| {
+            this.0.speculate = x;
+            Ok(())
+        });
+        methods.add_method_mut("setPCLoop", |_, this, x: bool| {
+            this.0.pcloop = match x {
+                true => Some(cold_clear::PcPriority::HighestAttack),
+                false => None,
+            };
+            Ok(())
+        });
+        methods.add_method_mut("setNode", |_, this, x: u32| {
+            this.0.max_nodes = x;
+            Ok(())
+        });
+    }
 }
 
 impl LuaUserData for CCWeights {
-    // todo
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        methods.add_method_mut("fastWeights", |_, this, ()| {
+            this.0 = cold_clear::evaluation::Standard::fast_config();
+            Ok(())
+        });
+    }
 }
 
 fn about(_: &Lua, _: ()) -> LuaResult<String> {
