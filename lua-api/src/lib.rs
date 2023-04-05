@@ -1,7 +1,9 @@
 use mlua::prelude::*;
 
 struct CCBot(cold_clear::Interface);
+#[derive(Clone)]
 struct CCOptions(cold_clear::Options);
+#[derive(Clone)]
 struct CCWeights(cold_clear::evaluation::Standard);
 trait ToPiece {
     fn to_piece(self) -> libtetris::Piece;
@@ -151,20 +153,19 @@ fn cold_clear(lua: &Lua) -> LuaResult<LuaTable> {
     exports.set("about", lua.create_function(about)?)?;
     exports.set(
         "launchAsync",
-        lua.create_function(|_, ()| {
+        lua.create_function(|_, (options, weights): (CCOptions, CCWeights)| {
             let board = libtetris::Board::new();
-            let options = cold_clear::Options::default();
-            let weights = cold_clear::evaluation::Standard::default();
             Ok(CCBot(cold_clear::Interface::launch(
-                board, options, weights, None,
+                board, options.0, weights.0, None,
             )))
         })?,
     )?;
     exports.set(
         "getDefaultConfig",
         lua.create_function(|_, ()| {
-            let options = cold_clear::Options::default();
+            let mut options = cold_clear::Options::default();
             let weights = cold_clear::evaluation::Standard::default();
+            options.spawn_rule = libtetris::SpawnRule::RowVariable;
             Ok((CCOptions(options), CCWeights(weights)))
         })?,
     )?;
