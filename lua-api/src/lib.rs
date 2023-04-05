@@ -1,6 +1,8 @@
 use mlua::prelude::*;
 
 struct CCBot(cold_clear::Interface);
+struct CCOptions(cold_clear::Options);
+struct CCWeights(cold_clear::evaluation::Standard);
 trait ToPiece {
     fn to_piece(self) -> libtetris::Piece;
 }
@@ -99,12 +101,20 @@ impl LuaUserData for CCBot {
     }
 }
 
+impl LuaUserData for CCOptions {
+    // todo
+}
+
+impl LuaUserData for CCWeights {
+    // todo
+}
+
 fn about(_: &Lua, _: ()) -> LuaResult<String> {
     Ok("lua wrapper by 26F-Studio".to_owned())
 }
 
 #[mlua::lua_module]
-fn my_module(lua: &Lua) -> LuaResult<LuaTable> {
+fn cold_clear(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
     exports.set("about", lua.create_function(about)?)?;
     exports.set(
@@ -116,6 +126,14 @@ fn my_module(lua: &Lua) -> LuaResult<LuaTable> {
             Ok(CCBot(cold_clear::Interface::launch(
                 board, options, weights, None,
             )))
+        })?,
+    )?;
+    exports.set(
+        "getDefaultConfig",
+        lua.create_function(|_, ()| {
+            let options = cold_clear::Options::default();
+            let weights = cold_clear::evaluation::Standard::default();
+            Ok((CCOptions(options), CCWeights(weights)))
         })?,
     )?;
     Ok(exports)
