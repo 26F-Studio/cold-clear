@@ -12,7 +12,7 @@ trait ToPiece {
 impl ToPiece for LuaInteger {
     fn to_piece(self) -> libtetris::Piece {
         use libtetris::Piece::*;
-        const ARR: [libtetris::Piece; 7] = [I, O, T, J, L, S, Z];
+        const ARR: [libtetris::Piece; 7] = [Z, S, J, L, T, O, I];
         ARR[self as usize - 1]
     }
 }
@@ -52,9 +52,9 @@ fn convert_movement(m: &[libtetris::PieceMovement]) -> Vec<LuaInteger> {
 
 impl LuaUserData for CCBot {
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method_mut("reset", |_, this, (field, b2b_active, combo)| {
+        methods.add_method_mut("reset", |_, this, (field, b2b_active, combo, pc_combo, lines, spawn)| {
             this.0
-                .reset(luatable_to_field(field), b2b_active, combo, 0, 0, 0);
+                .reset(luatable_to_field(field), b2b_active, combo, pc_combo, lines, spawn);
             Ok(())
         });
         methods.add_method_mut("addNext", |_, this, pieceid: LuaInteger| {
@@ -66,8 +66,9 @@ impl LuaUserData for CCBot {
             Ok(())
         });
         methods.add_method_mut("getMove", |_, this, ()| match this.0.poll_next_move() {
-            // result,dest,hold,move,b2b,attack,extra,spawn=pcall(ccBot.getMove,ccBot)
+            // result,dest,hold,move,b2b,attack,extra,spawn=ccBot.getMove()
             Ok((m, info)) => {
+                this.0.play_next_move(m.expected_location);
                 let plan = &info.plan()[0];
                 let lock_result = &plan.1;
                 let dest = get_dest(&m);
