@@ -21,7 +21,7 @@ fn luatable_to_field(table: LuaTable) -> [[bool; 10]; 40] {
     let mut ret = [[false; 10]; 40];
     for i in 0..40 {
         for j in 0..10 {
-            ret[i][j] = table.get(i * 10 + j).unwrap();
+            ret[i][j] = table.get(i * 10 + j + 1).unwrap();
         }
     }
     ret
